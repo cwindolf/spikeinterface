@@ -251,6 +251,7 @@ class DecentralizedRegistration:
         if extra_check is not None:
             extra_check['motion_histogram'] = motion_histogram
             extra_check['pairwise_displacement_list'] = []
+            extra_check['pairwise_weight_list'] = []
             extra_check['temporal_hist_bin_edges'] = temporal_hist_bin_edges
             extra_check['spatial_hist_bin_edges'] = spatial_hist_bin_edges
 
@@ -291,6 +292,7 @@ class DecentralizedRegistration:
 
             if extra_check is not None:
                 extra_check['pairwise_displacement_list'].append(pairwise_displacement)
+                extra_check['pairwise_weight_list'].append(pairwise_displacement_weight)
 
             if verbose:
                 print(f'Computing global displacement: {i + 1} / {len(non_rigid_windows)}')
