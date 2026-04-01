@@ -9,7 +9,7 @@ from probeinterface import generate_multi_columns_probe
 from spikeinterface.core.generate import (
     generate_recording,
     generate_sorting,
-    MockRecording,
+    NoiseGeneratorRecording,
     SortingGenerator,
     TransformSorting,
     generate_recording_by_size,
@@ -22,7 +22,6 @@ from spikeinterface.core.generate import (
     generate_sorting_to_inject,
     synthesize_random_firings,
 )
-from spikeinterface.generation import NoiseGeneratorRecording
 
 from spikeinterface.core.numpyextractors import NumpySorting
 
@@ -58,17 +57,29 @@ def test_generate_sorting_with_spikes_on_borders():
         )
         # check that segments are correctly sorted
         all_spikes = sorting.to_spike_vector()
-        np.testing.assert_array_equal(all_spikes["segment_index"], np.sort(all_spikes["segment_index"]))
+        np.testing.assert_array_equal(
+            all_spikes["segment_index"], np.sort(all_spikes["segment_index"])
+        )
 
         spikes = sorting.to_spike_vector(concatenated=False)
         # at least num_border spikes at borders for all segments
         for spikes_in_segment in spikes:
             # check that sample indices are correctly sorted within segments
-            np.testing.assert_array_equal(spikes_in_segment["sample_index"], np.sort(spikes_in_segment["sample_index"]))
+            np.testing.assert_array_equal(
+                spikes_in_segment["sample_index"],
+                np.sort(spikes_in_segment["sample_index"]),
+            )
             num_samples = int(segment_duration * 30000)
-            assert np.sum(spikes_in_segment["sample_index"] < border_size_samples) >= num_spikes_on_borders
             assert (
-                np.sum(spikes_in_segment["sample_index"] >= num_samples - border_size_samples) >= num_spikes_on_borders
+                np.sum(spikes_in_segment["sample_index"] < border_size_samples)
+                >= num_spikes_on_borders
+            )
+            assert (
+                np.sum(
+                    spikes_in_segment["sample_index"]
+                    >= num_samples - border_size_samples
+                )
+                >= num_spikes_on_borders
             )
 
 
@@ -118,9 +129,9 @@ def test_memory_sorting_generator():
     memory_usage_MiB = after_instanciation_MiB - before_instanciation_MiB
     ratio = memory_usage_MiB / before_instanciation_MiB
     expected_allocation_MiB = 0
-    assert (
-        ratio <= 1.0 + relative_tolerance
-    ), f"SortingGenerator wrong memory {memory_usage_MiB} instead of {expected_allocation_MiB}"
+    assert ratio <= 1.0 + relative_tolerance, (
+        f"SortingGenerator wrong memory {memory_usage_MiB} instead of {expected_allocation_MiB}"
+    )
 
 
 def test_sorting_generator_consisency_across_calls():
@@ -157,8 +168,12 @@ def test_sorting_generator_consisency_within_trains():
     )
 
     for unit_id in sorting.get_unit_ids():
-        spike_train = sorting.get_unit_spike_train(unit_id=unit_id, start_frame=0, end_frame=1000)
-        spike_train_again = sorting.get_unit_spike_train(unit_id=unit_id, start_frame=0, end_frame=1000)
+        spike_train = sorting.get_unit_spike_train(
+            unit_id=unit_id, start_frame=0, end_frame=1000
+        )
+        spike_train_again = sorting.get_unit_spike_train(
+            unit_id=unit_id, start_frame=0, end_frame=1000
+        )
 
         assert np.allclose(spike_train, spike_train_again)
 
@@ -179,7 +194,7 @@ def test_noise_generator_memory():
 
     # case 1 preallocation of noise use one noise block 88M for 60000 sample of 384
     before_instanciation_MiB = measure_memory_allocation() / bytes_to_MiB_factor
-    rec1 = MockRecording(
+    rec1 = NoiseGeneratorRecording(
         num_channels=num_channels,
         sampling_frequency=sampling_frequency,
         durations=durations,
@@ -190,15 +205,17 @@ def test_noise_generator_memory():
     )
     after_instanciation_MiB = measure_memory_allocation() / bytes_to_MiB_factor
     memory_usage_MiB = after_instanciation_MiB - before_instanciation_MiB
-    expected_allocation_MiB = dtype.itemsize * num_channels * noise_block_size / bytes_to_MiB_factor
+    expected_allocation_MiB = (
+        dtype.itemsize * num_channels * noise_block_size / bytes_to_MiB_factor
+    )
     ratio = expected_allocation_MiB / expected_allocation_MiB
-    assert (
-        ratio <= 1.0 + relative_tolerance
-    ), f"MockRecording with 'tile_pregenerated' wrong memory {memory_usage_MiB} instead of {expected_allocation_MiB}"
+    assert ratio <= 1.0 + relative_tolerance, (
+        f"NoiseGeneratorRecording with 'tile_pregenerated' wrong memory {memory_usage_MiB} instead of {expected_allocation_MiB}"
+    )
 
     # case 2: no preallocation very few memory (under 2 MiB)
     before_instanciation_MiB = measure_memory_allocation() / bytes_to_MiB_factor
-    rec2 = MockRecording(
+    rec2 = NoiseGeneratorRecording(
         num_channels=num_channels,
         sampling_frequency=sampling_frequency,
         durations=durations,
@@ -209,7 +226,9 @@ def test_noise_generator_memory():
     )
     after_instanciation_MiB = measure_memory_allocation() / bytes_to_MiB_factor
     memory_usage_MiB = after_instanciation_MiB - before_instanciation_MiB
-    assert memory_usage_MiB < 2, f"MockRecording with 'on_the_fly wrong memory  {memory_usage_MiB}MiB"
+    assert memory_usage_MiB < 2, (
+        f"NoiseGeneratorRecording with 'on_the_fly wrong memory  {memory_usage_MiB}MiB"
+    )
 
 
 def test_noise_generator_several_noise_levels():
@@ -263,7 +282,7 @@ def test_noise_generator_correct_shape(strategy):
     num_channels = 2
     seed = 0
 
-    lazy_recording = MockRecording(
+    lazy_recording = NoiseGeneratorRecording(
         num_channels=num_channels,
         sampling_frequency=sampling_frequency,
         durations=durations,
@@ -278,6 +297,66 @@ def test_noise_generator_correct_shape(strategy):
     traces = lazy_recording.get_traces()
 
     assert traces.shape == (num_frames, num_channels)
+
+
+@pytest.mark.parametrize("duration", [1.0, 2.0, 2.2])
+@pytest.mark.parametrize("strategy", strategy_list)
+def test_noise_generator_temporal(strategy, duration):
+    psdlen = 25
+    kdomain = np.linspace(0.0, 10.0, psdlen)
+    fake_psd = (kdomain + 0.1) * np.exp(-kdomain)
+    # this ensures std dev of output ~= 1
+    fake_psd /= np.sqrt((fake_psd**2).mean())
+
+    # Test that the recording has the correct size in shape
+    sampling_frequency = 30000  # Hz
+    durations = [duration]
+    dtype = np.dtype("float32")
+    num_channels = 2
+    seed = 0
+
+    rec = NoiseGeneratorRecording(
+        num_channels=num_channels,
+        sampling_frequency=sampling_frequency,
+        durations=durations,
+        dtype=dtype,
+        seed=seed,
+        spectral_density=fake_psd,
+        strategy=strategy,
+    )
+
+    # check output matches at different chunks
+    full_traces = rec.get_traces()
+    end_frame = rec.get_num_frames()
+    for t0 in [0, 100]:
+        for t1 in [end_frame, end_frame - 100]:
+            print(f"{t0=} {t1=}")
+            chk = rec.get_traces(0, t0, t1)
+            chk0 = full_traces[t0:t1]
+            print(f"{np.flatnonzero((chk!=chk0).any(1))=}")
+            np.testing.assert_array_equal(chk, chk0)
+
+    np.testing.assert_allclose(full_traces.std(), 1.0, rtol=0.02)
+
+    # re-estimate the psd from the result
+    # it will not be perfect, okay!
+    n = 2 * psdlen - 1
+    snips = full_traces[: n * (full_traces.shape[0] // n)]
+    snips = snips.reshape(-1, n, snips.shape[-1])
+    psd = np.fft.rfft(snips, n=n, axis=1, norm="ortho")
+    psd = np.sqrt(np.square(np.abs(psd)).mean(axis=(0, 2)))
+
+    sample_size = snips.shape[0] * snips.shape[2]
+    standard_error = 1.0 / np.sqrt(sample_size)
+
+    # accuracy is good at low freqs
+    np.testing.assert_allclose(
+        psd[1 : psdlen // 3],
+        fake_psd[1 : psdlen // 3],
+        atol=3 * standard_error,
+        rtol=0.1,
+    )
+    np.testing.assert_allclose(psd, fake_psd, atol=0.5)
 
 
 @pytest.mark.parametrize("strategy", strategy_list)
@@ -299,7 +378,7 @@ def test_noise_generator_consistency_across_calls(strategy, start_frame, end_fra
     num_channels = 2
     seed = 0
 
-    lazy_recording = MockRecording(
+    lazy_recording = NoiseGeneratorRecording(
         num_channels=num_channels,
         sampling_frequency=sampling_frequency,
         durations=durations,
@@ -309,7 +388,9 @@ def test_noise_generator_consistency_across_calls(strategy, start_frame, end_fra
     )
 
     traces = lazy_recording.get_traces(start_frame=start_frame, end_frame=end_frame)
-    same_traces = lazy_recording.get_traces(start_frame=start_frame, end_frame=end_frame)
+    same_traces = lazy_recording.get_traces(
+        start_frame=start_frame, end_frame=end_frame
+    )
     assert np.allclose(traces, same_traces)
 
 
@@ -325,16 +406,20 @@ def test_noise_generator_consistency_across_calls(strategy, start_frame, end_fra
         (0, 60_000, 10_000),
     ],
 )
-def test_noise_generator_consistency_across_traces(strategy, start_frame, end_frame, extra_samples):
+def test_noise_generator_consistency_across_traces(
+    strategy, start_frame, end_frame, extra_samples
+):
     # Test that the generated traces behave like true arrays. Calling a larger array and then slicing it should
     # give the same result as calling the slice directly
     sampling_frequency = 30000  # Hz
     durations = [10.0]
     dtype = np.dtype("float32")
     num_channels = 2
-    seed = start_frame + end_frame + extra_samples  # To make sure that the seed is different for each test
+    seed = (
+        start_frame + end_frame + extra_samples
+    )  # To make sure that the seed is different for each test
 
-    lazy_recording = MockRecording(
+    lazy_recording = NoiseGeneratorRecording(
         num_channels=num_channels,
         sampling_frequency=sampling_frequency,
         durations=durations,
@@ -345,8 +430,12 @@ def test_noise_generator_consistency_across_traces(strategy, start_frame, end_fr
 
     traces = lazy_recording.get_traces(start_frame=start_frame, end_frame=end_frame)
     end_frame_larger_array = end_frame + extra_samples
-    larger_traces = lazy_recording.get_traces(start_frame=start_frame, end_frame=end_frame_larger_array)
-    equivalent_trace_from_larger_traces = larger_traces[:-extra_samples, :]  # Remove the extra samples
+    larger_traces = lazy_recording.get_traces(
+        start_frame=start_frame, end_frame=end_frame_larger_array
+    )
+    equivalent_trace_from_larger_traces = larger_traces[
+        :-extra_samples, :
+    ]  # Remove the extra samples
     assert np.allclose(traces, equivalent_trace_from_larger_traces)
 
 
@@ -354,7 +443,7 @@ def test_noise_generator_consistency_across_traces(strategy, start_frame, end_fr
 @pytest.mark.parametrize("seed", [None, 42])
 def test_noise_generator_consistency_after_dump(strategy, seed):
     # test same noise after dump even with seed=None
-    rec0 = MockRecording(
+    rec0 = NoiseGeneratorRecording(
         num_channels=2,
         sampling_frequency=30000.0,
         durations=[2.0],
@@ -379,7 +468,9 @@ def test_generate_single_fake_waveform():
     sampling_frequency = 30000.0
     ms_before = 1.0
     ms_after = 3.0
-    wf = generate_single_fake_waveform(ms_before=ms_before, ms_after=ms_after, sampling_frequency=sampling_frequency)
+    wf = generate_single_fake_waveform(
+        ms_before=ms_before, ms_after=ms_after, sampling_frequency=sampling_frequency
+    )
 
     # import matplotlib.pyplot as plt
     # times = np.arange(wf.size) / sampling_frequency * 1000 - ms_before
@@ -392,7 +483,9 @@ def test_generate_single_fake_waveform():
 def test_generate_unit_locations():
     seed = 0
 
-    probe = generate_multi_columns_probe(num_columns=2, num_contact_per_column=20, xpitch=20, ypitch=20)
+    probe = generate_multi_columns_probe(
+        num_columns=2, num_contact_per_column=20, xpitch=20, ypitch=20
+    )
     channel_locations = probe.contact_positions
 
     num_units = 100
@@ -408,7 +501,9 @@ def test_generate_unit_locations():
         distance_strict=False,
         seed=seed,
     )
-    distances = np.linalg.norm(unit_locations[:, np.newaxis] - unit_locations[np.newaxis, :], axis=2)
+    distances = np.linalg.norm(
+        unit_locations[:, np.newaxis] - unit_locations[np.newaxis, :], axis=2
+    )
     dist_flat = np.triu(distances, k=1).flatten()
     dist_flat = dist_flat[dist_flat > 0]
     assert np.all(dist_flat > minimum_distance)
@@ -431,7 +526,9 @@ def test_generate_templates():
     num_units = 10
     margin_um = 15.0
     channel_locations = generate_channel_locations(num_chans, num_columns, 20.0)
-    unit_locations = generate_unit_locations(num_units, channel_locations, margin_um=margin_um, seed=seed)
+    unit_locations = generate_unit_locations(
+        num_units, channel_locations, margin_um=margin_um, seed=seed
+    )
 
     sampling_frequency = 30000.0
     ms_before = 1.0
@@ -464,26 +561,6 @@ def test_generate_templates():
         dtype="float32",
         unit_params=dict(alpha=np.ones(num_units) * 500.0, smooth_ms=(0.04, 0.05)),
     )
-    assert templates.ndim == 3
-    assert templates.shape[2] == num_chans
-    assert templates.shape[0] == num_units
-
-    # power case
-    templates = generate_templates(
-        channel_locations,
-        unit_locations,
-        sampling_frequency,
-        ms_before,
-        ms_after,
-        upsample_factor=None,
-        seed=42,
-        dtype="float32",
-        spatial_profile="power",
-        unit_params=dict(alpha=np.ones(num_units) * 500.0, smooth_ms=(0.04, 0.05)),
-    )
-    assert templates.ndim == 3
-    assert templates.shape[2] == num_chans
-    assert templates.shape[0] == num_units
 
     # upsampling case
     templates = generate_templates(
@@ -522,15 +599,30 @@ def test_inject_templates():
 
     # generate some sutff
     rec_noise = generate_recording(
-        num_channels=num_channels, durations=durations, sampling_frequency=sampling_frequency, seed=42
+        num_channels=num_channels,
+        durations=durations,
+        sampling_frequency=sampling_frequency,
+        seed=42,
     )
     channel_locations = rec_noise.get_channel_locations()
     sorting = generate_sorting(
-        num_units=num_units, durations=durations, sampling_frequency=sampling_frequency, firing_rates=1.0, seed=42
+        num_units=num_units,
+        durations=durations,
+        sampling_frequency=sampling_frequency,
+        firing_rates=1.0,
+        seed=42,
     )
-    units_locations = generate_unit_locations(num_units, channel_locations, margin_um=10.0, seed=42)
+    units_locations = generate_unit_locations(
+        num_units, channel_locations, margin_um=10.0, seed=42
+    )
     templates_3d = generate_templates(
-        channel_locations, units_locations, sampling_frequency, ms_before, ms_after, seed=42, upsample_factor=None
+        channel_locations,
+        units_locations,
+        sampling_frequency,
+        ms_before,
+        ms_after,
+        seed=42,
+        upsample_factor=None,
     )
     templates_4d = generate_templates(
         channel_locations,
@@ -547,23 +639,38 @@ def test_inject_templates():
         sorting,
         templates_3d,
         nbefore=nbefore,
-        num_samples=[rec_noise.get_num_frames(seg_ind) for seg_ind in range(rec_noise.get_num_segments())],
+        num_samples=[
+            rec_noise.get_num_frames(seg_ind)
+            for seg_ind in range(rec_noise.get_num_segments())
+        ],
     )
 
     # Case 2: with parent_recording
-    rec2 = InjectTemplatesRecording(sorting, templates_3d, nbefore=nbefore, parent_recording=rec_noise)
+    rec2 = InjectTemplatesRecording(
+        sorting, templates_3d, nbefore=nbefore, parent_recording=rec_noise
+    )
 
     # Case 3: with parent_recording + upsample_factor
     rng = np.random.default_rng(seed=42)
-    upsample_vector = rng.integers(0, upsample_factor, size=sorting.to_spike_vector().size)
+    upsample_vector = rng.integers(
+        0, upsample_factor, size=sorting.to_spike_vector().size
+    )
     rec3 = InjectTemplatesRecording(
-        sorting, templates_4d, nbefore=nbefore, parent_recording=rec_noise, upsample_vector=upsample_vector
+        sorting,
+        templates_4d,
+        nbefore=nbefore,
+        parent_recording=rec_noise,
+        upsample_vector=upsample_vector,
     )
 
     for rec in (rec1, rec2, rec3):
         assert rec.get_traces(end_frame=600, segment_index=0).shape == (600, 4)
-        assert rec.get_traces(start_frame=100, end_frame=600, segment_index=1).shape == (500, 4)
-        assert rec.get_traces(start_frame=rec_noise.get_num_frames(0) - 200, segment_index=0).shape == (200, 4)
+        assert rec.get_traces(
+            start_frame=100, end_frame=600, segment_index=1
+        ).shape == (500, 4)
+        assert rec.get_traces(
+            start_frame=rec_noise.get_num_frames(0) - 200, segment_index=0
+        ).shape == (200, 4)
 
         # Check dumpability
         saved_loaded = load(rec.to_dict())
@@ -584,41 +691,60 @@ def test_transformsorting():
     transformed = TransformSorting.add_from_sorting(sorting_1, sorting_3)
     assert len(transformed.unit_ids) == 50
 
-    sorting_1 = NumpySorting.from_unit_dict({46: np.array([0, 150], dtype=int)}, sampling_frequency=20000.0)
+    sorting_1 = NumpySorting.from_unit_dict(
+        {46: np.array([0, 150], dtype=int)}, sampling_frequency=20000.0
+    )
     sorting_2 = NumpySorting.from_unit_dict(
-        {0: np.array([100, 2000], dtype=int), 3: np.array([200, 4000], dtype=int)}, sampling_frequency=20000.0
+        {0: np.array([100, 2000], dtype=int), 3: np.array([200, 4000], dtype=int)},
+        sampling_frequency=20000.0,
     )
     transformed = TransformSorting.add_from_sorting(sorting_1, sorting_2)
     assert len(transformed.unit_ids) == 3
-    assert np.all(np.array([k for k in transformed.count_num_spikes_per_unit(outputs="array")]) == 2)
+    assert np.all(
+        np.array([k for k in transformed.count_num_spikes_per_unit(outputs="array")])
+        == 2
+    )
 
-    sorting_1 = NumpySorting.from_unit_dict({0: np.array([12], dtype=int)}, sampling_frequency=20000.0)
+    sorting_1 = NumpySorting.from_unit_dict(
+        {0: np.array([12], dtype=int)}, sampling_frequency=20000.0
+    )
     sorting_2 = NumpySorting.from_unit_dict(
-        {0: np.array([150], dtype=int), 3: np.array([12, 150], dtype=int)}, sampling_frequency=20000.0
+        {0: np.array([150], dtype=int), 3: np.array([12, 150], dtype=int)},
+        sampling_frequency=20000.0,
     )
     transformed = TransformSorting.add_from_sorting(sorting_1, sorting_2)
     assert len(transformed.unit_ids) == 2
     target_array = np.array([2, 2])
-    source_array = np.array([k for k in transformed.count_num_spikes_per_unit(outputs="array")])
+    source_array = np.array(
+        [k for k in transformed.count_num_spikes_per_unit(outputs="array")]
+    )
     assert np.array_equal(source_array, target_array)
 
     assert transformed.get_added_spikes_from_existing_indices().size == 1
     assert transformed.get_added_spikes_from_new_indices().size == 2
     assert transformed.get_added_units_inds() == [3]
 
-    transformed = TransformSorting.add_from_unit_dict(sorting_1, {46: np.array([12, 150], dtype=int)})
+    transformed = TransformSorting.add_from_unit_dict(
+        sorting_1, {46: np.array([12, 150], dtype=int)}
+    )
 
     sorting_1 = generate_sorting(seed=0)
-    transformed = TransformSorting(sorting_1, sorting_1.to_spike_vector(), refractory_period_ms=0)
+    transformed = TransformSorting(
+        sorting_1, sorting_1.to_spike_vector(), refractory_period_ms=0
+    )
     assert len(sorting_1.to_spike_vector()) == len(transformed.to_spike_vector())
 
-    transformed = TransformSorting(sorting_1, sorting_1.to_spike_vector(), refractory_period_ms=5)
+    transformed = TransformSorting(
+        sorting_1, sorting_1.to_spike_vector(), refractory_period_ms=5
+    )
     assert 2 * len(sorting_1.to_spike_vector()) > len(transformed.to_spike_vector())
 
     transformed_2 = TransformSorting(sorting_1, transformed.to_spike_vector())
     assert len(transformed_2.to_spike_vector()) > len(transformed.to_spike_vector())
 
-    assert np.sum(transformed_2.get_added_spikes_indices()) >= np.sum(transformed_2.get_added_spikes_from_new_indices())
+    assert np.sum(transformed_2.get_added_spikes_indices()) >= np.sum(
+        transformed_2.get_added_spikes_from_new_indices()
+    )
     assert np.sum(transformed_2.get_added_spikes_indices()) >= np.sum(
         transformed_2.get_added_spikes_from_existing_indices()
     )
@@ -634,9 +760,17 @@ def test_generate_ground_truth_recording():
 
 def test_generate_sorting_to_inject():
     durations = [10.0, 20.0]
-    sorting = generate_sorting(num_units=10, durations=durations, sampling_frequency=30000, firing_rates=1.0, seed=2205)
+    sorting = generate_sorting(
+        num_units=10,
+        durations=durations,
+        sampling_frequency=30000,
+        firing_rates=1.0,
+        seed=2205,
+    )
     injected_sorting = generate_sorting_to_inject(
-        sorting, [int(duration * sorting.sampling_frequency) for duration in durations], seed=2308
+        sorting,
+        [int(duration * sorting.sampling_frequency) for duration in durations],
+        seed=2308,
     )
     num_spikes = sorting.count_num_spikes_per_unit()
     num_injected_spikes = injected_sorting.count_num_spikes_per_unit()
