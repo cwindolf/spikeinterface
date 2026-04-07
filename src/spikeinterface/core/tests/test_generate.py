@@ -63,7 +63,10 @@ def test_generate_sorting_with_spikes_on_borders():
         # at least num_border spikes at borders for all segments
         for spikes_in_segment in spikes:
             # check that sample indices are correctly sorted within segments
-            np.testing.assert_array_equal(spikes_in_segment["sample_index"], np.sort(spikes_in_segment["sample_index"]))
+            np.testing.assert_array_equal(
+                spikes_in_segment["sample_index"],
+                np.sort(spikes_in_segment["sample_index"]),
+            )
             num_samples = int(segment_duration * 30000)
             assert np.sum(spikes_in_segment["sample_index"] < border_size_samples) >= num_spikes_on_borders
             assert (
@@ -521,15 +524,28 @@ def test_inject_templates():
 
     # generate some sutff
     rec_noise = generate_recording(
-        num_channels=num_channels, durations=durations, sampling_frequency=sampling_frequency, seed=42
+        num_channels=num_channels,
+        durations=durations,
+        sampling_frequency=sampling_frequency,
+        seed=42,
     )
     channel_locations = rec_noise.get_channel_locations()
     sorting = generate_sorting(
-        num_units=num_units, durations=durations, sampling_frequency=sampling_frequency, firing_rates=1.0, seed=42
+        num_units=num_units,
+        durations=durations,
+        sampling_frequency=sampling_frequency,
+        firing_rates=1.0,
+        seed=42,
     )
     units_locations = generate_unit_locations(num_units, channel_locations, margin_um=10.0, seed=42)
     templates_3d = generate_templates(
-        channel_locations, units_locations, sampling_frequency, ms_before, ms_after, seed=42, upsample_factor=None
+        channel_locations,
+        units_locations,
+        sampling_frequency,
+        ms_before,
+        ms_after,
+        seed=42,
+        upsample_factor=None,
     )
     templates_4d = generate_templates(
         channel_locations,
@@ -556,7 +572,11 @@ def test_inject_templates():
     rng = np.random.default_rng(seed=42)
     upsample_vector = rng.integers(0, upsample_factor, size=sorting.to_spike_vector().size)
     rec3 = InjectTemplatesRecording(
-        sorting, templates_4d, nbefore=nbefore, parent_recording=rec_noise, upsample_vector=upsample_vector
+        sorting,
+        templates_4d,
+        nbefore=nbefore,
+        parent_recording=rec_noise,
+        upsample_vector=upsample_vector,
     )
 
     for rec in (rec1, rec2, rec3):
@@ -585,7 +605,8 @@ def test_transformsorting():
 
     sorting_1 = NumpySorting.from_unit_dict({46: np.array([0, 150], dtype=int)}, sampling_frequency=20000.0)
     sorting_2 = NumpySorting.from_unit_dict(
-        {0: np.array([100, 2000], dtype=int), 3: np.array([200, 4000], dtype=int)}, sampling_frequency=20000.0
+        {0: np.array([100, 2000], dtype=int), 3: np.array([200, 4000], dtype=int)},
+        sampling_frequency=20000.0,
     )
     transformed = TransformSorting.add_from_sorting(sorting_1, sorting_2)
     assert len(transformed.unit_ids) == 3
@@ -593,7 +614,8 @@ def test_transformsorting():
 
     sorting_1 = NumpySorting.from_unit_dict({0: np.array([12], dtype=int)}, sampling_frequency=20000.0)
     sorting_2 = NumpySorting.from_unit_dict(
-        {0: np.array([150], dtype=int), 3: np.array([12, 150], dtype=int)}, sampling_frequency=20000.0
+        {0: np.array([150], dtype=int), 3: np.array([12, 150], dtype=int)},
+        sampling_frequency=20000.0,
     )
     transformed = TransformSorting.add_from_sorting(sorting_1, sorting_2)
     assert len(transformed.unit_ids) == 2
@@ -633,9 +655,17 @@ def test_generate_ground_truth_recording():
 
 def test_generate_sorting_to_inject():
     durations = [10.0, 20.0]
-    sorting = generate_sorting(num_units=10, durations=durations, sampling_frequency=30000, firing_rates=1.0, seed=2205)
+    sorting = generate_sorting(
+        num_units=10,
+        durations=durations,
+        sampling_frequency=30000,
+        firing_rates=1.0,
+        seed=2205,
+    )
     injected_sorting = generate_sorting_to_inject(
-        sorting, [int(duration * sorting.sampling_frequency) for duration in durations], seed=2308
+        sorting,
+        [int(duration * sorting.sampling_frequency) for duration in durations],
+        seed=2308,
     )
     num_spikes = sorting.count_num_spikes_per_unit()
     num_injected_spikes = injected_sorting.count_num_spikes_per_unit()
