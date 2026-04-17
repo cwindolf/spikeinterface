@@ -4,7 +4,14 @@ from spikeinterface.core.generate import NoiseGeneratorRecording
 
 
 def generate_noise(
-    probe, sampling_frequency, durations, dtype="float32", noise_levels=15.0, spatial_decay=None, seed=None
+    probe,
+    sampling_frequency,
+    durations,
+    dtype="float32",
+    noise_levels=15.0,
+    spatial_decay=None,
+    spectral_density=None,
+    seed=None,
 ):
     """
     Generate a noise recording.
@@ -63,6 +70,7 @@ def generate_noise(
         strategy="on_the_fly",
         noise_levels=noise_levels,
         cov_matrix=cov_matrix,
+        spectral_density=spectral_density,
         seed=seed,
     )
 

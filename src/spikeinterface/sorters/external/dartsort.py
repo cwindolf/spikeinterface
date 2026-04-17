@@ -10,11 +10,11 @@ class DartsortSorter(BaseSorter):
     sorter_name = "dartsort"
     requires_locations = False
     compatible_with_parallel = {"loky": False, "multiprocessing": False, "threading": False}
-    sorter_description = "Dartsort is the Columbia university sorter made with love by Charlie Windolf and Liam Paninski's team."
+    sorter_description = "dartsort is the sorter made with love by Charlie Windolf and Liam Paninski's team."
     installation_mesg = """\nTo use dartsort run:\n
        >>> pip install dartsort
 
-    More information on mountainsort5 at:
+    More information on dartsort at:
       * https://github.com/cwindolf/dartsort
     """
 
@@ -26,17 +26,17 @@ class DartsortSorter(BaseSorter):
 
     @classmethod
     def _dynamic_params(cls):
-        from dartsort import DARTsortUserConfig
+        from dartsort.config import DARTsortUserConfig, DeveloperConfig
         from pydantic import RootModel
         # the trick is to transform the DARTsortUserConfig  (a pydantic.dataclass) into a pydantic model
-        Model = RootModel[DARTsortUserConfig]
+        Model = RootModel[DeveloperConfig]
         # so we can dump to dict
-        cfg = Model(DARTsortUserConfig())
+        cfg = Model(DeveloperConfig())
         default_params = cfg.model_dump(mode='python')
         # and retrieve properties
         schema = Model.model_json_schema()
         default_params_descriptions = {}
-        for k, props in schema['$defs']['DARTsortUserConfig']['properties'].items():
+        for k, props in schema['$defs']['DeveloperConfig']['properties'].items():
             default_params_descriptions[k] = props['title']
 
         return default_params, default_params_descriptions
@@ -65,12 +65,12 @@ class DartsortSorter(BaseSorter):
     @classmethod
     def _run_from_folder(cls, sorter_output_folder, params, verbose):
         from dartsort import dartsort as dartsort_main
-        from dartsort import DARTsortUserConfig
+        from dartsort import DeveloperConfig
 
         recording = cls.load_recording_from_folder(sorter_output_folder.parent, with_warnings=False)
 
         # dartsort config are set using dataclass we need to map this
-        cfg = DARTsortUserConfig(**params)
+        cfg = DeveloperConfig(**params)
         
         ret = dartsort_main(
             recording,
