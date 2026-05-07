@@ -1566,7 +1566,6 @@ class NoiseGeneratorRecordingSegment(BaseRecordingSegment):
         # grab padded chunk
         pad_start_frame = start_frame - left_pad_len
         pad_end_frame = end_frame + right_pad_len
-        print(f"{pad_start_frame=} {pad_end_frame=}")
         assert 0 <= pad_start_frame < pad_end_frame <= n_samples
         chunk = self.get_traces_spatial_only(pad_start_frame, pad_end_frame, channel_indices)
         empty = np.zeros_like(chunk[:0])

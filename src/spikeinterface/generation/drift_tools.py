@@ -373,7 +373,11 @@ class InjectDriftingTemplatesRecording(BaseRecording):
             amplitude_vector = np.full(self.spike_vector.size, amplitude_factor, dtype="float32")
         else:
             amplitude_factor = np.asarray(amplitude_factor)
-            assert amplitude_factor.shape == self.spike_vector.shape
+            if amplitude_factor.shape != self.spike_vector.shape:
+                raise ValueError(
+                    f"Shape mismatch: amplitude_factor.shape={amplitude_factor.shape} not "
+                    f"equal to {self.spike_vector.shape}"
+                )
             amplitude_vector = amplitude_factor
 
         if parent_recording is not None:
