@@ -44,8 +44,7 @@ def test_generate_noise():
 
 
 @pytest.mark.parametrize("duration", [1.0, 2.0, 2.2])
-@pytest.mark.parametrize("strategy", ["tile_precomputed", "on_the_fly"])
-def test_noise_generator_temporal(strategy, duration):
+def test_noise_generator_temporal(duration):
     psdlen = 25
     kdomain = np.linspace(0.0, 10.0, psdlen)
     fake_psd = (kdomain + 0.1) * np.exp(-kdomain)
@@ -66,7 +65,6 @@ def test_noise_generator_temporal(strategy, duration):
         dtype=dtype,
         seed=seed,
         spectral_density=fake_psd,
-        strategy=strategy,
     )
 
     # check output matches at different chunks
